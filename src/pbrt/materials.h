@@ -426,6 +426,55 @@ class HairMaterial {
     FloatTexture beta_m, beta_n, alpha;
 };
 
+// CeramicsMaterial Definition
+class CeramicsMaterial {
+  public:
+    // CeramicsMaterial Type Definitions
+    using BxDF = DiffuseBxDF;
+    using BSSRDF = void;
+
+    // CeramicsMaterial Public Methods
+    static const char *Name() { return "CeramicsMaterial"; }
+
+    PBRT_CPU_GPU
+    FloatTexture GetDisplacement() const { return displacement; }
+    PBRT_CPU_GPU
+    const Image *GetNormalMap() const { return normalMap; }
+
+    static CeramicsMaterial *Create(const TextureParameterDictionary &parameters,
+                                  Image *normalMap, const FileLoc *loc, Allocator alloc);
+
+    template <typename TextureEvaluator>
+    PBRT_CPU_GPU void GetBSSRDF(TextureEvaluator texEval, MaterialEvalContext ctx,
+                                SampledWavelengths &lambda, void *) const {}
+
+    PBRT_CPU_GPU static constexpr bool HasSubsurfaceScattering() { return false; }
+
+    std::string ToString() const;
+
+    CeramicsMaterial(SpectrumTexture reflectance, FloatTexture displacement,
+                    Image *normalMap)
+        : normalMap(normalMap), displacement(displacement), reflectance(reflectance) {}
+
+    template <typename TextureEvaluator>
+    PBRT_CPU_GPU bool CanEvaluateTextures(TextureEvaluator texEval) const {
+        return texEval.CanEvaluate({}, {reflectance});
+    }
+
+    template <typename TextureEvaluator>
+    PBRT_CPU_GPU DiffuseBxDF GetBxDF(TextureEvaluator texEval, MaterialEvalContext ctx,
+                                    SampledWavelengths &lambda) const {
+        SampledSpectrum r = Clamp(texEval(reflectance, ctx, lambda), 0, 1);
+        return DiffuseBxDF(r);
+    }
+
+  private:
+    // DiffuseMaterial Private Members
+    Image *normalMap;
+    FloatTexture displacement;
+    SpectrumTexture reflectance;
+};
+
 // DiffuseMaterial Definition
 class DiffuseMaterial {
   public:
