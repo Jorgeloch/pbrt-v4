@@ -183,6 +183,27 @@ HairMaterial *HairMaterial::Create(const TextureParameterDictionary &parameters,
                                           beta_m, beta_n, alpha);
 }
 
+// CeramicsMaterial Method Definitions
+std::string CeramicsMaterial::ToString() const {
+    return StringPrintf(
+        "[ CeramicsMaterial displacement: %s normapMap: %s reflectance: %s ]",
+        displacement, normalMap ? normalMap->ToString() : std::string("(nullptr)"),
+        reflectance);
+}
+
+CeramicsMaterial *CeramicsMaterial::Create(const TextureParameterDictionary &parameters,
+                                         Image *normalMap, const FileLoc *loc,
+                                         Allocator alloc) {
+    SpectrumTexture reflectance = parameters.GetSpectrumTexture(
+        "reflectance", nullptr, SpectrumType::Albedo, alloc);
+    if (!reflectance)
+        reflectance = alloc.new_object<SpectrumConstantTexture>(
+            alloc.new_object<ConstantSpectrum>(0.5f));
+    FloatTexture displacement = parameters.GetFloatTextureOrNull("displacement", alloc);
+
+    return alloc.new_object<CeramicsMaterial>(reflectance, displacement, normalMap);
+}
+
 // DiffuseMaterial Method Definitions
 std::string DiffuseMaterial::ToString() const {
     return StringPrintf(
@@ -679,7 +700,10 @@ Material Material::Create(const std::string &name,
                           "the \"mix\" material.", materialNames[i]);
         }
         material = MixMaterial::Create(materials, parameters, loc, alloc);
-    } else
+    }
+    else if (name == "ceramics")
+        material = CeramicsMaterial::Create(parameters, normalMap, loc, alloc);
+    else
         ErrorExit(loc, "%s: material type unknown.", name);
 
     if (!material)
