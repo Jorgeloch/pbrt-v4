@@ -18,7 +18,6 @@
 #include <pbrt/util/taggedptr.h>
 #include <pbrt/util/transform.h>
 
-#include <memory>
 #include <string>
 #include <type_traits>
 
@@ -463,13 +462,17 @@ class CeramicsMaterial {
 
     template <typename TextureEvaluator>
     PBRT_CPU_GPU DiffuseBxDF GetBxDF(TextureEvaluator texEval, MaterialEvalContext ctx,
-                                    SampledWavelengths &lambda) const {
+                                      SampledWavelengths &lambda) const {
         SampledSpectrum r = Clamp(texEval(reflectance, ctx, lambda), 0, 1);
         return DiffuseBxDF(r);
     }
 
   private:
-    // DiffuseMaterial Private Members
+    /* 0: Cinza; 1: Branca; 2: Amarelo/Bege; 3: Laranja; 4: Vermelho; 5: Marrom; 6: Preto */
+    static const Float hue[7];
+    static const Float saturation[7];
+    static const Float lightness[7];
+
     Image *normalMap;
     FloatTexture displacement;
     SpectrumTexture reflectance;

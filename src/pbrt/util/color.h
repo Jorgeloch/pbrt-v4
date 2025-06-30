@@ -151,6 +151,33 @@ class RGB {
     Float r = 0, g = 0, b = 0;
 };
 
+inline static RGB fromHSL(const Vector3f &hsl) {
+    Float H = hsl.x, S = hsl.y, L = hsl.z;
+    // normalize H to [0,1)
+    H = std::fmod(H, 360.f) / 360.f;
+    if (H < 0) H += 1.f;
+
+    // chroma
+    Float C = (1.f - std::fabs(2.f*L - 1.f)) * S;
+    // intermediate
+    Float Hp = H * 6.f;
+    Float X  = C * (1.f - std::fabs(std::fmod(Hp, 2.f) - 1.f));
+
+    // pick sector
+    Float r1, g1, b1;
+    if      (Hp < 1.f) { r1 = C;  g1 = X;  b1 = 0; }
+    else if (Hp < 2.f) { r1 = X;  g1 = C;  b1 = 0; }
+    else if (Hp < 3.f) { r1 = 0;  g1 = C;  b1 = X; }
+    else if (Hp < 4.f) { r1 = 0;  g1 = X;  b1 = C; }
+    else if (Hp < 5.f) { r1 = X;  g1 = 0;  b1 = C; }
+    else if (Hp < 6.f) { r1 = C;  g1 = 0;  b1 = X; }
+    else               { r1 = 0;  g1 = 0;  b1 = 0; }
+
+    // match lightness
+    Float m = L - C/2.f;
+    return RGB(r1 + m, g1 + m, b1 + m);
+}
+
 PBRT_CPU_GPU
 inline RGB max(RGB a, RGB b) {
     return RGB(std::max(a.r, b.r), std::max(a.g, b.g), std::max(a.b, b.b));

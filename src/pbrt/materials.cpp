@@ -20,8 +20,9 @@
 #include <pbrt/util/spectrum.h>
 
 #include <cmath>
-#include <numeric>
+#include <iostream>
 #include <string>
+#include "pbrt/base/texture.h"
 
 namespace pbrt {
 
@@ -183,23 +184,49 @@ HairMaterial *HairMaterial::Create(const TextureParameterDictionary &parameters,
                                           beta_m, beta_n, alpha);
 }
 
-// CeramicsMaterial Method Definitions
+// CeramicsMaterial Definitions
+const Float CeramicsMaterial::hue[7] =        { 210, 35, 41, 10, 18, 4, 36 };
+const Float CeramicsMaterial::saturation[7] = { .14f, .18f, .43f, .25f, .5f, .24f, .08f };
+const Float CeramicsMaterial::lightness[7] =  { .77f, .66f, .65f, .43f, .43f, .12f, .25f };
+
 std::string CeramicsMaterial::ToString() const {
-    return StringPrintf(
-        "[ CeramicsMaterial displacement: %s normapMap: %s reflectance: %s ]",
-        displacement, normalMap ? normalMap->ToString() : std::string("(nullptr)"),
-        reflectance);
+  return StringPrintf(
+      "[ CeramicsMaterial displacement: %s normapMap: %s reflectance: %s ]",
+      displacement, normalMap ? normalMap->ToString() : std::string("(nullptr)"),
+      reflectance);
 }
 
-CeramicsMaterial *CeramicsMaterial::Create(const TextureParameterDictionary &parameters,
-                                         Image *normalMap, const FileLoc *loc,
-                                         Allocator alloc) {
-    SpectrumTexture reflectance = parameters.GetSpectrumTexture(
-        "reflectance", nullptr, SpectrumType::Albedo, alloc);
-    if (!reflectance)
-        reflectance = alloc.new_object<SpectrumConstantTexture>(
-            alloc.new_object<ConstantSpectrum>(0.5f));
+CeramicsMaterial *CeramicsMaterial::Create(const TextureParameterDictionary &parameters, Image *normalMap, const FileLoc *loc, Allocator alloc) {
     FloatTexture displacement = parameters.GetFloatTextureOrNull("displacement", alloc);
+
+    Float color = parameters.GetOneFloat("color", 1.0f);
+    color = Clamp(color, 0.f, 7.f);
+    if (color == 7) color = 0;
+
+    // get indices and interpolation fraction
+    int i0 = std::floor(color);
+    int i1 = (int)std::ceil(color) % 7;
+    Float fraction = color - i0;
+
+    // interpolates H, S, L from base tables
+    Float H = Lerp(fraction, hue[i0], hue[i1]);
+    Float S = Lerp(fraction, saturation[i0], saturation[i1]);
+    Float L = Lerp(fraction, lightness[i0], lightness[i1]);
+
+    Float firing = parameters.GetOneFloat("firing", 1.0f);
+
+    // adjust L by firing level
+    Float factor = (firing < .5f) ? 1.1f : 0.6f;
+    L = Clamp(L * factor, 0.f, 1.f);
+
+    RGB rgb = fromHSL(Vector3f(H, S, L));
+
+    std::cout << rgb.r << std::endl;
+    std::cout << rgb.g << std::endl;
+    std::cout << rgb.b << std::endl;
+
+    SpectrumTexture reflectance = alloc.new_object<SpectrumConstantTexture>(
+        alloc.new_object<RGBAlbedoSpectrum>(*RGBColorSpace::sRGB, rgb));
 
     return alloc.new_object<CeramicsMaterial>(reflectance, displacement, normalMap);
 }
