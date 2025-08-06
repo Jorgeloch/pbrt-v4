@@ -12,6 +12,7 @@
 #include <pbrt/util/taggedptr.h>
 #include <pbrt/util/vecmath.h>
 
+#include <random>
 #include <string>
 
 namespace pbrt {
@@ -152,6 +153,7 @@ struct BSDFSample {
 };
 
 class DiffuseBxDF;
+class CeramicsBxDF;
 class DiffuseTransmissionBxDF;
 class DielectricBxDF;
 class ThinDielectricBxDF;
@@ -164,7 +166,7 @@ class CoatedConductorBxDF;
 
 // BxDF Definition
 class BxDF
-    : public TaggedPointer<DiffuseTransmissionBxDF, DiffuseBxDF, CoatedDiffuseBxDF,
+    : public TaggedPointer<DiffuseTransmissionBxDF, DiffuseBxDF, CeramicsBxDF, CoatedDiffuseBxDF,
                            CoatedConductorBxDF, DielectricBxDF, ThinDielectricBxDF,
                            HairBxDF, MeasuredBxDF, ConductorBxDF, NormalizedFresnelBxDF> {
   public:

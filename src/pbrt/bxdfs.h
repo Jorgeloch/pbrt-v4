@@ -21,10 +21,81 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <limits>
 #include <string>
 
 namespace pbrt {
+
+// CeramicsBxDF Definition
+class CeramicsBxDF {
+  public:
+    // CeramicsBxDF Public Methods
+    CeramicsBxDF() = default;
+    PBRT_CPU_GPU
+    CeramicsBxDF(SampledSpectrum R, Float sigma) : R(R), sigma(sigma) {}
+
+    PBRT_CPU_GPU
+    SampledSpectrum f(Vector3f wo, Vector3f wi, TransportMode mode) const {
+        if (!SameHemisphere(wo, wi)) return SampledSpectrum(0.f);
+        Float theta_i = SphericalTheta(wi), theta_o = SphericalTheta(wo);
+        Float cos_phi_diff = CosPhi(wi) * CosPhi(wo) + SinPhi(wi) * SinPhi(wo);
+
+        Float alpha = std::max(theta_i, theta_o);
+        Float beta = std::min(theta_i, theta_o);
+        Float sigma2 = pow(Radians(sigma), 2);
+
+        Float c1 = 1 - 0.5 * (sigma2 / (sigma2 + 0.33));
+        Float c2 = 0.45 * sigma2 / (sigma2 + 0.09);
+        if (cos_phi_diff >= 0) c2 *= sin(alpha);
+        else c2 *= sin(alpha) - pow(2 * beta * InvPi, 3);
+        Float c3 = 0.125 * (sigma2 / (sigma2 + 0.09)) * pow(4 * alpha * beta * InvPi * InvPi, 2);
+
+        SampledSpectrum f1 = R * InvPi * (c1 + c2 * cos_phi_diff * tan(beta) + c3 * (1 - std::abs(cos_phi_diff)) * tan((alpha + beta) / 2));
+        SampledSpectrum f2 = 0.17 * R * R * InvPi * (sigma2 / (sigma2 + 0.13)) * (1 - cos_phi_diff * pow(2 * beta * InvPi, 2));
+        return f1 + f2;
+    }
+
+    PBRT_CPU_GPU
+    pstd::optional<BSDFSample> Sample_f(
+        Vector3f wo, Float uc, Point2f u, TransportMode mode,
+        BxDFReflTransFlags sampleFlags = BxDFReflTransFlags::All) const {
+        if (!(sampleFlags & BxDFReflTransFlags::Reflection))
+            return {};
+        // Sample cosine-weighted hemisphere to compute _wi_ and _pdf_
+        Vector3f wi = SampleCosineHemisphere(u);
+        if (wo.z < 0)
+            wi.z *= -1;
+        Float pdf = CosineHemispherePDF(AbsCosTheta(wi));
+
+        return BSDFSample(f(wo, wi, mode), wi, pdf, BxDFFlags::DiffuseReflection);
+    }
+
+    PBRT_CPU_GPU
+    Float PDF(Vector3f wo, Vector3f wi, TransportMode mode,
+              BxDFReflTransFlags sampleFlags = BxDFReflTransFlags::All) const {
+        if (!(sampleFlags & BxDFReflTransFlags::Reflection) || !SameHemisphere(wo, wi))
+            return 0;
+        return CosineHemispherePDF(AbsCosTheta(wi));
+    }
+
+    PBRT_CPU_GPU
+    static constexpr const char *Name() { return "CeramicsBxDF"; }
+
+    std::string ToString() const;
+
+    PBRT_CPU_GPU
+    void Regularize() {}
+
+    PBRT_CPU_GPU
+    BxDFFlags Flags() const {
+        return R ? BxDFFlags::DiffuseReflection : BxDFFlags::Unset;
+    }
+
+  private:
+    SampledSpectrum R;
+    float sigma;
+};
 
 // DiffuseBxDF Definition
 class DiffuseBxDF {
