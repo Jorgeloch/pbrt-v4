@@ -185,50 +185,84 @@ HairMaterial *HairMaterial::Create(const TextureParameterDictionary &parameters,
 }
 
 // CeramicsMaterial Definitions
-const Float CeramicsMaterial::hue[7] =        { 210, 35, 41, 10, 18, 4, 36 };
-const Float CeramicsMaterial::saturation[7] = { .14f, .18f, .43f, .25f, .5f, .24f, .08f };
-const Float CeramicsMaterial::lightness[7] =  { .77f, .66f, .65f, .43f, .43f, .12f, .25f };
+
+// const Vector3f CeramicsMaterial::hslColors[7] = {
+//   Vector3f(210, .14f, .77f),  // Cinza
+//   Vector3f(35, .18f, .66f),   // Branca
+//   Vector3f(41, .43f, .65f),   // Amarelo/Bege
+//   Vector3f(10, .25f, .43f),   // Laranja
+//   Vector3f(18, .50f, .43f),   // Vermelho
+//   Vector3f(4, .24f, .12f),    // Marrom
+//   Vector3f(36, .08f, .25f)    // Preto
+// };
+
+// Abordagem 1: Média dos pixels
+const RGB rgbColors1[7] = {
+  RGB(0.7378, 0.77, 0.8022),
+  RGB(0.7212, 0.6702, 0.5988),
+  RGB(0.8005, 0.705183, 0.4995),
+  RGB(0.5375, 0.358333, 0.3225),
+  RGB(0.645, 0.344, 0.215),
+  RGB(0.1488, 0.09504, 0.0912),
+  RGB(0.27, 0.254, 0.23)
+};
+
+// Abordagem 2: Tabela de Munsell
+const RGB rgbColors2[7] = {
+  RGB(0.6196078431372549, 0.5764705882352941, 0.5450980392156862),
+  RGB(0.8196078431372549, 0.788235294117647, 0.7372549019607844),
+  RGB(0.9607843137254902, 0.7529411764705882, 0.5411764705882353),
+  RGB(0.8666666666666667, 0.6392156862745098, 0.47058823529411764),
+  RGB(0.7058823529411765, 0.4, 0.23921568627450981),
+  RGB(0.5019607843137255, 0.34901960784313724, 0.12941176470588237),
+  RGB(0.26666666666666666, 0.2235294117647059, 0.20784313725490197)
+};
 
 std::string CeramicsMaterial::ToString() const {
   return StringPrintf(
-      "[ CeramicsMaterial displacement: %s normapMap: %s reflectance: %s ]",
-      displacement, normalMap ? normalMap->ToString() : std::string("(nullptr)"),
+      "[ CeramicsMaterial color: $s firing: $s roughness: %s munsell: %s displacement: %s normapMap: %s reflectance: %s ]",
+      color, firing, roughness, munsell, displacement, normalMap ? normalMap->ToString() : std::string("(nullptr)"),
       reflectance);
 }
 
 CeramicsMaterial *CeramicsMaterial::Create(const TextureParameterDictionary &parameters, Image *normalMap, const FileLoc *loc, Allocator alloc) {
+    bool munsell = parameters.GetOneBool("munsell", false);
+    const RGB *rgbColors = munsell ? rgbColors2 : rgbColors1;
+
     FloatTexture displacement = parameters.GetFloatTextureOrNull("displacement", alloc);
+    Float roughness = parameters.GetOneFloat("roughness", 0.0f);
+    roughness = std::max(roughness, 0.0f);
 
     Float color = parameters.GetOneFloat("color", 1.0f);
-    color = Clamp(color, 0.f, 7.f);
-    if (color == 7) color = 0;
+    if (color < 0 || color >= 7) color = 0;
 
-    // get indices and interpolation fraction
+    // Interpolação linear entre as cores base
     int i0 = std::floor(color);
     int i1 = (int)std::ceil(color) % 7;
     Float fraction = color - i0;
-
-    // interpolates H, S, L from base tables
-    Float H = Lerp(fraction, hue[i0], hue[i1]);
-    Float S = Lerp(fraction, saturation[i0], saturation[i1]);
-    Float L = Lerp(fraction, lightness[i0], lightness[i1]);
+    RGB rgb = Lerp(fraction, rgbColors[i0], rgbColors[i1]);
 
     Float firing = parameters.GetOneFloat("firing", 1.0f);
 
-    // adjust L by firing level
-    Float factor = (firing < .5f) ? 1.1f : 0.6f;
-    L = Clamp(L * factor, 0.f, 1.f);
+    // Ajuste para queima oxidante
+    const float s_ox = 1.2;   // +20% de saturação
+    const float l_ox = 1.1;   // +10% de luminosidade
 
-    RGB rgb = fromHSL(Vector3f(H, S, L));
+    // Ajuste para queima redutora
+    const float s_red = 0.2;  //  20% da saturação original
+    const float l_red = 0.1;  //  10% do brilho original
 
-    std::cout << rgb.r << std::endl;
-    std::cout << rgb.g << std::endl;
-    std::cout << rgb.b << std::endl;
+    // Interpolação linear entre os níves de queima
+    Vector3f hsl = RGB::toHSL(rgb);
+    hsl[1] *= std::min(1.0f, Lerp(firing, s_ox, s_red));
+    hsl[2] *= std::min(1.0f, Lerp(firing, l_ox, l_red));
+
+    rgb = RGB::fromHSL(hsl);
 
     SpectrumTexture reflectance = alloc.new_object<SpectrumConstantTexture>(
         alloc.new_object<RGBAlbedoSpectrum>(*RGBColorSpace::sRGB, rgb));
 
-    return alloc.new_object<CeramicsMaterial>(reflectance, displacement, normalMap);
+    return alloc.new_object<CeramicsMaterial>(color, firing, roughness, munsell, reflectance, displacement, normalMap);
 }
 
 // DiffuseMaterial Method Definitions
