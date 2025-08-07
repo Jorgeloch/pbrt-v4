@@ -59,6 +59,9 @@ std::string ToString(TransportMode mode) {
 }
 
 // BxDF Method Definitions
+std::string CeramicsBxDF::ToString() const {
+    return StringPrintf("[ CeramicsBxDF R: %s sigma: %f ]", R, sigma);
+}
 std::string DiffuseBxDF::ToString() const {
     return StringPrintf("[ DiffuseBxDF R: %s ]", R);
 }

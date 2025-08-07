@@ -18,9 +18,11 @@
 #include <pbrt/util/taggedptr.h>
 #include <pbrt/util/transform.h>
 
-#include <memory>
 #include <string>
 #include <type_traits>
+#include "pbrt/base/bxdf.h"
+#include "pbrt/bxdfs.h"
+#include "pbrt/util/image.h"
 
 namespace pbrt {
 
@@ -430,7 +432,7 @@ class HairMaterial {
 class CeramicsMaterial {
   public:
     // CeramicsMaterial Type Definitions
-    using BxDF = DiffuseBxDF;
+    using BxDF = CeramicsBxDF;
     using BSSRDF = void;
 
     // CeramicsMaterial Public Methods
@@ -452,9 +454,8 @@ class CeramicsMaterial {
 
     std::string ToString() const;
 
-    CeramicsMaterial(SpectrumTexture reflectance, FloatTexture displacement,
-                    Image *normalMap)
-        : normalMap(normalMap), displacement(displacement), reflectance(reflectance) {}
+    CeramicsMaterial(float color, float firing, float roughness, bool munsell, SpectrumTexture reflectance, FloatTexture displacement, Image *normalMap)
+        : color(color), firing(firing), roughness(roughness), munsell(munsell), reflectance(reflectance), normalMap(normalMap), displacement(displacement) {}
 
     template <typename TextureEvaluator>
     PBRT_CPU_GPU bool CanEvaluateTextures(TextureEvaluator texEval) const {
@@ -462,14 +463,17 @@ class CeramicsMaterial {
     }
 
     template <typename TextureEvaluator>
-    PBRT_CPU_GPU DiffuseBxDF GetBxDF(TextureEvaluator texEval, MaterialEvalContext ctx,
-                                    SampledWavelengths &lambda) const {
+    PBRT_CPU_GPU BxDF GetBxDF(TextureEvaluator texEval, MaterialEvalContext ctx,
+                                      SampledWavelengths &lambda) const {
         SampledSpectrum r = Clamp(texEval(reflectance, ctx, lambda), 0, 1);
-        return DiffuseBxDF(r);
+        return BxDF(r, roughness);
     }
 
   private:
-    // DiffuseMaterial Private Members
+    float color;
+    float firing;
+    float roughness;
+    bool munsell;
     Image *normalMap;
     FloatTexture displacement;
     SpectrumTexture reflectance;

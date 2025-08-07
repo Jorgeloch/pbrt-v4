@@ -14,6 +14,7 @@
 #include <pbrt/util/vecmath.h>
 
 #include <cmath>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <string>
@@ -149,6 +150,58 @@ class RGB {
 
     // RGB Public Members
     Float r = 0, g = 0, b = 0;
+
+    inline static RGB fromHSL(const Vector3f &hsl) {
+        Float H = hsl.x, S = hsl.y, L = hsl.z;
+        // normalize H to [0,1)
+        H = std::fmod(H, 360.f) / 360.f;
+        if (H < 0) H += 1.f;
+
+        // chroma
+        Float C = (1.f - std::fabs(2.f*L - 1.f)) * S;
+        // intermediate
+        Float Hp = H * 6.f;
+        Float X  = C * (1.f - std::fabs(std::fmod(Hp, 2.f) - 1.f));
+
+        // pick sector
+        Float r1, g1, b1;
+        if      (Hp < 1.f) { r1 = C;  g1 = X;  b1 = 0; }
+        else if (Hp < 2.f) { r1 = X;  g1 = C;  b1 = 0; }
+        else if (Hp < 3.f) { r1 = 0;  g1 = C;  b1 = X; }
+        else if (Hp < 4.f) { r1 = 0;  g1 = X;  b1 = C; }
+        else if (Hp < 5.f) { r1 = X;  g1 = 0;  b1 = C; }
+        else if (Hp < 6.f) { r1 = C;  g1 = 0;  b1 = X; }
+        else               { r1 = 0;  g1 = 0;  b1 = 0; }
+
+        // match lightness
+        Float m = L - C/2.f;
+        return RGB(r1 + m, g1 + m, b1 + m);
+    }
+
+    inline static Vector3f toHSL(const RGB &rgb) {
+        float r = rgb.r;
+        float g = rgb.g;
+        float b = rgb.b;
+
+        float cmax = std::max<float>(r, std::max<float>(g, b));
+        float cmin = std::min<float>(r, std::min<float>(g, b));
+
+        float h, s, l;
+
+        float sum = cmin + cmax;
+        float diff = cmax - cmin;
+        l = sum / 2;
+
+        if(cmin == cmax) {
+            h = s = 0;
+        } else {
+            s = diff / ((l < 0.5) ? sum : (2.0 - sum));
+            float hi = (r == cmax) ? ((g - b) / diff) : ((g == cmax) ? (2 + (b - r) / diff) : (4 + (r - g) / diff));
+            h = (60 * hi) + (hi < 0 ? 360 : 0);
+        }
+
+        return Vector3f(h, s, l);
+    }
 };
 
 PBRT_CPU_GPU
