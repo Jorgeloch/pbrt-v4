@@ -39,7 +39,24 @@ class CeramicsBxDF {
     SampledSpectrum f(Vector3f wo, Vector3f wi, TransportMode mode) const {
         if (!SameHemisphere(wo, wi)) return SampledSpectrum(0.f);
         Float theta_i = SphericalTheta(wi), theta_o = SphericalTheta(wo);
-        Float cos_phi_diff = CosPhi(wi) * CosPhi(wo) + SinPhi(wi) * SinPhi(wo);
+        Float dcos = CosPhi(wi) * CosPhi(wo) + SinPhi(wi) * SinPhi(wo);
+
+        Vector3f alphaVector, betaVector;
+        if (AbsCosTheta(wi) > AbsCosTheta(wo)) {
+          alphaVector = wo;
+          betaVector = wi;
+        }
+        else {
+          alphaVector = wi;
+          betaVector = wo;
+        }
+
+        Float sinAlpha = SinTheta(alphaVector);
+        Float sinBeta = SinTheta(betaVector);
+        Float cosAlpha = CosTheta(alphaVector);
+        Float cosBeta = CosTheta(betaVector);
+        Float tanBeta = sinBeta / cosBeta;
+        Float tanHalfAngle = (sinAlpha + sinBeta) / (cosAlpha + cosBeta);
 
         Float alpha = std::max(theta_i, theta_o);
         Float beta = std::min(theta_i, theta_o);
@@ -47,12 +64,12 @@ class CeramicsBxDF {
 
         Float c1 = 1 - 0.5 * (sigma2 / (sigma2 + 0.33));
         Float c2 = 0.45 * sigma2 / (sigma2 + 0.09);
-        if (cos_phi_diff >= 0) c2 *= sin(alpha);
-        else c2 *= sin(alpha) - pow(2 * beta * InvPi, 3);
+        if (dcos >= 0) c2 *= sinAlpha;
+        else c2 *= sinAlpha - pow(2 * beta * InvPi, 3);
         Float c3 = 0.125 * (sigma2 / (sigma2 + 0.09)) * pow(4 * alpha * beta * InvPi * InvPi, 2);
 
-        SampledSpectrum f1 = R * InvPi * (c1 + c2 * cos_phi_diff * tan(beta) + c3 * (1 - std::abs(cos_phi_diff)) * tan((alpha + beta) / 2));
-        SampledSpectrum f2 = 0.17 * R * R * InvPi * (sigma2 / (sigma2 + 0.13)) * (1 - cos_phi_diff * pow(2 * beta * InvPi, 2));
+        SampledSpectrum f1 = R * InvPi * (c1 + c2 * dcos * tanBeta + c3 * (1 - std::abs(dcos)) * tanHalfAngle);
+        SampledSpectrum f2 = 0.17 * R * R * InvPi * (sigma2 / (sigma2 + 0.13)) * (1 - dcos * pow(2 * beta * InvPi, 2));
         return f1 + f2;
     }
 
