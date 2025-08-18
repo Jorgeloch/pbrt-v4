@@ -105,6 +105,43 @@ Float FresnelMoment1(Float invEta);
 PBRT_CPU_GPU
 Float FresnelMoment2(Float invEta);
 
+// BagherDistribution Declarations
+class BagherDistribution {
+public:
+    // BagherDistribution
+    // Public Mehtods Definition
+    BagherDistribution() : alpha(0.01f), p(0.5f), Kap(1.0f) {}
+    BagherDistribution(
+      Float alpha,
+      Float p,
+      Float Kap = 1.0f
+    ) :
+    alpha(alpha),
+    p(p),
+    Kap(Kap) {}
+
+    PBRT_CPU_GPU inline Float D(Vector3f wh) const {
+        return D(CosTheta(wh));
+    }
+
+    PBRT_CPU_GPU Float D(Float cosTheta) const;
+    PBRT_CPU_GPU Float Lambda(Float cosTheta) const;
+    PBRT_CPU_GPU Float G1(Float cosTheta) const {
+        return 1 / (1 + Lambda(cosTheta));
+    }
+    PBRT_CPU_GPU Float G(Float cosThetaI, Float cosThetaO) const {
+        return 1 / (1 + Lambda(cosThetaI) + Lambda(cosThetaO));
+    }
+
+    PBRT_CPU_GPU Vector3f Sample_wh(Point2f u) const;
+    PBRT_CPU_GPU Float Pdf(Vector3f wh) const;
+
+    std::string ToString() const;
+
+private:
+    Float alpha, p, Kap;
+};
+
 // TrowbridgeReitzDistribution Definition
 class TrowbridgeReitzDistribution {
   public:

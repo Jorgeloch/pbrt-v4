@@ -35,4 +35,57 @@ std::string TrowbridgeReitzDistribution::ToString() const {
                         alpha_x, alpha_y);
 }
 
+// Bagher distribution methods definition
+Float BagherDistribution::D(Float cosTheta) const {
+    if (cosTheta <= 0) return 0;
+
+    Float tanTheta2 = (1 - cosTheta * cosTheta) / (cosTheta * cosTheta);
+    Float cos4Theta = cosTheta * cosTheta * cosTheta * cosTheta;
+
+    Float alphaTerm = alpha * alpha + tanTheta2;
+    Float expTerm = std::exp(-(alphaTerm / alpha));
+    Float powerTerm = std::pow(alphaTerm, p);
+
+    return (InvPi / cos4Theta) * (Kap * expTerm / powerTerm);
+}
+
+Float BagherDistribution::Lambda(Float cosTheta) const {
+    if (cosTheta <= 0) return 0;
+
+    Float theta = std::acos(std::clamp(cosTheta, Float(0), Float(1)));
+
+    Float tanTheta = std::sqrt((1 - cosTheta * cosTheta) / (cosTheta * cosTheta));
+    Float a = 1 / (alpha * tanTheta);
+
+    // Aproximação similar à usada para outras distribuições microfacetas
+    if (a < 1.6f) {
+        return (1 - 1.259f * a + 0.396f * a * a) / (3.535f * a + 2.181f * a * a);
+    } else {
+        return 0;
+    }
+}
+
+Vector3f BagherDistribution::Sample_wh(Point2f u) const {
+    // Como não temos forma fechada para o inverso da CDF,
+    // usamos importance sampling baseado em GGX como aproximação
+    Float cosTheta = std::sqrt((1 - u[0]) / (1 + (alpha * alpha - 1) * u[0]));
+    Float sinTheta = std::sqrt(std::max(Float(0), 1 - cosTheta * cosTheta));
+    Float phi = 2 * Pi * u[1];
+
+    return SphericalDirection(sinTheta, cosTheta, phi);
+}
+
+Float BagherDistribution::Pdf(Vector3f wh) const {
+    return D(wh) * AbsCosTheta(wh);
+}
+
+std::string BagherDistribution::ToString() const {
+    return StringPrintf(
+      "[ BagherDistribution alpha: %f p: %f Kap: %f ]",
+      alpha,
+      p,
+      Kap
+    );
+}
+// Bagher distribution methods definition end
 }  // namespace pbrt
