@@ -26,6 +26,63 @@
 
 namespace pbrt {
 
+// BagherBxDF Declarations
+class BagherBxDF {
+public:
+    // BagherBxDF Public Methods
+    BagherBxDF() = default;
+
+    PBRT_CPU_GPU
+    BagherBxDF(
+      const SampledSpectrum &R,
+      const BagherDistribution &distribution,
+      const SampledSpectrum &F0,
+      const SampledSpectrum &F1
+    ) :
+    R(R),
+    distribution(distribution),
+    F0(F0),
+    F1(F1) {}
+
+    PBRT_CPU_GPU
+    BxDFFlags Flags() const {
+        return BxDFFlags::Reflection | BxDFFlags::Glossy;
+    }
+
+    PBRT_CPU_GPU
+    SampledSpectrum f(
+      Vector3f wo,
+      Vector3f wi,
+      TransportMode mode
+    ) const;
+
+    PBRT_CPU_GPU
+    pstd::optional<BSDFSample> Sample_f(
+      Vector3f wo,
+      Float uc,
+      Point2f u,
+      TransportMode mode,
+      BxDFReflTransFlags sampleFlags
+    ) const;
+
+    PBRT_CPU_GPU
+    Float PDF(Vector3f wo, Vector3f wi, TransportMode mode,
+              BxDFReflTransFlags sampleFlags) const;
+
+    std::string ToString() const;
+
+    PBRT_CPU_GPU void Regularize() {}
+
+private:
+    // BagherBxDF Private Methods
+    SampledSpectrum FresnelTerm(Float cosTheta) const;
+
+    // BagherBxDF Private Members
+    SampledSpectrum R;
+    BagherDistribution distribution;
+    SampledSpectrum F0, F1;
+};
+
 // DiffuseBxDF Definition
 class DiffuseBxDF {
   public:
@@ -1069,7 +1126,7 @@ class MeasuredBxDF {
     SampledWavelengths lambda;
 };
 
-// NormalizedFresnelBxDF Definition
+// NormalizedFresnelBxDF Definiton
 class NormalizedFresnelBxDF {
   public:
     // NormalizedFresnelBxDF Public Methods
