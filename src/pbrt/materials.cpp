@@ -18,10 +18,10 @@
 #include <pbrt/util/memory.h>
 #include <pbrt/util/print.h>
 #include <pbrt/util/spectrum.h>
+#include <pbrt/util/scattering.h>
 
-#include <cmath>
-#include <numeric>
 #include <string>
+#include "pbrt/base/texture.h"
 
 namespace pbrt {
 
@@ -38,6 +38,93 @@ std::string NormalBumpEvalContext::ToString() const {
         p, uv, shading.n, shading.dpdu, shading.dpdv, shading.dndu, shading.dndv, dudx,
         dudy, dvdx, dvdy, dpdx, dpdy, faceIndex);
 }
+
+//BagherMaterial Method Definitions
+BagherMaterial *BagherMaterial::Create(
+    const TextureParameterDictionary &parameters,
+    Image* normalMap,
+    const FileLoc *loc,
+    Allocator alloc
+) {
+    Float Kd = parameters.GetOneFloat(
+      "Kd",
+      0.5f
+    );
+    Float alpha = parameters.GetOneFloat(
+      "alpha",
+      0.01f
+    );
+    Float p = parameters.GetOneFloat(
+      "p",
+      0.5f
+    );
+    Float F0 = parameters.GetOneFloat(
+      "F0",
+      0.04f
+    );
+    Float F1 = parameters.GetOneFloat(
+      "F1",
+      0.1f
+    );
+    Float Kap = parameters.GetOneFloat(
+      "Kap",
+      0.01f
+    );
+
+    // Displacement permanece como FloatTexture
+    FloatTexture displacement = parameters.GetFloatTexture(
+      "displacement",
+      0.0f,
+      alloc
+    );
+
+    bool normalMapIsFloat = parameters.GetOneBool("normalmapisFloat", false);
+
+    return alloc.new_object<BagherMaterial>(
+        Kd,
+        alpha,
+        p,
+        F0,
+        F1,
+        Kap,
+        displacement,
+        normalMap,
+        normalMapIsFloat
+    );
+}
+
+// Implementação do método GetBxDF (template)
+template <typename TextureEvaluator>
+PBRT_CPU_GPU BagherBxDF BagherMaterial::GetBxDF(
+    TextureEvaluator texEval,
+    MaterialEvalContext ctx,
+    SampledWavelengths &lambda
+) const {
+    // Avaliar as texturas no ponto de superfície
+    Float kdVal = Kd->Evaluate(texEval, ctx, lambda);
+    Float alphaVal = alpha->Evaluate(texEval, ctx, lambda);
+    Float pVal = p->Evaluate(texEval, ctx, lambda);
+    Float f0Val = F0->Evaluate(texEval, ctx, lambda);
+    Float f1Val = F1->Evaluate(texEval, ctx, lambda);
+    Float kapVal = Kap->Evaluate(texEval, ctx, lambda);
+
+    BagherDistribution distribution = BagherDistribution(alphaVal, pVal, kapVal);
+
+    // Retornar o BxDF customizado com os parâmetros avaliados
+    return BagherBxDF(kdVal, distribution, f0Val, f1Val);
+}
+
+std::string BagherMaterial::ToString() const {
+    return StringPrintf(
+      "[ BagherMaterial Kd: %s alpha: %s p: %s F0: %s F1: %s Kap: %s ]",
+      Kd ? Kd->ToString().c_str() : "(null)",
+      alpha ? alpha->ToString().c_str() : "(null)",
+      p ? p->ToString().c_str() : "(null)",
+      F0 ? F0->ToString().c_str() : "(null)",
+      F1 ? F1->ToString().c_str() : "(null)",
+      Kap ? Kap->ToString().c_str() : "(null)");
+}
+// BagherMaterials Method Definitions end
 
 // DielectricMaterial Method Definitions
 std::string DielectricMaterial::ToString() const {
@@ -679,6 +766,9 @@ Material Material::Create(const std::string &name,
                           "the \"mix\" material.", materialNames[i]);
         }
         material = MixMaterial::Create(materials, parameters, loc, alloc);
+    }
+    else if (name == "bagher") {
+      material = BagherMaterial::Create(parameters, normalMap, loc, alloc);
     } else
         ErrorExit(loc, "%s: material type unknown.", name);
 

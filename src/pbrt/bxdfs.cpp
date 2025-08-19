@@ -24,6 +24,7 @@
 
 #include <unordered_map>
 #include "base/bxdf.h"
+#include "pbrt/util/spectrum.h"
 
 namespace pbrt {
 
@@ -60,10 +61,10 @@ std::string ToString(TransportMode mode) {
 }
 
 // BagherBxDF Methods
-SampledSpectrum BagherBxDF::FresnelTerm(Float cosTheta) const {
+Float BagherBxDF::FresnelTerm(Float cosTheta) const {
     // Fresnel modificado: F(θd) = F0 + (1-F0)(1-cosθd)^5 - F1*cosθd
     Float cos5 = std::pow(1 - cosTheta, 5);
-    return F0 + (SampledSpectrum(1.0f) - F0) * cos5 - F1 * cosTheta;
+    return Float(F0 + (1.0f - F0) * cos5 - F1 * cosTheta);
 }
 
 SampledSpectrum BagherBxDF::f(
@@ -88,9 +89,9 @@ SampledSpectrum BagherBxDF::f(
 
     Float D = distribution.D(wh);
     Float G = distribution.G(cosThetaI, cosThetaO);
-    SampledSpectrum F = FresnelTerm(cosThetaD);
+    Float F = FresnelTerm(cosThetaD);
 
-    SampledSpectrum specular = R * D * G * F / (4 * cosThetaI * cosThetaO);
+    SampledSpectrum specular = SampledSpectrum(R * D * G * F / (4 * cosThetaI * cosThetaO));
 
     return specular;
 }
@@ -134,11 +135,11 @@ Float BagherBxDF::PDF(
 
 std::string BagherBxDF::ToString() const {
     return StringPrintf(
-      "[ BagherBxDF R: %s distribution: %s F0: %s F1: %s ]",
-      R.ToString().c_str(),
+      "[ BagherBxDF R: %d distribution: %s F0: %d F1: %d ]",
+      R,
       distribution.ToString().c_str(),
-      F0.ToString().c_str(),
-      F1.ToString().c_str()
+      F0,
+      F1
     );
 }
 

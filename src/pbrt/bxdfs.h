@@ -34,10 +34,10 @@ public:
 
     PBRT_CPU_GPU
     BagherBxDF(
-      const SampledSpectrum &R,
+      const Float &R,
       const BagherDistribution &distribution,
-      const SampledSpectrum &F0,
-      const SampledSpectrum &F1
+      const Float &F0,
+      const Float &F1
     ) :
     R(R),
     distribution(distribution),
@@ -75,12 +75,12 @@ public:
 
 private:
     // BagherBxDF Private Methods
-    SampledSpectrum FresnelTerm(Float cosTheta) const;
+    Float FresnelTerm(Float cosTheta) const;
 
     // BagherBxDF Private Members
-    SampledSpectrum R;
+    Float R;
     BagherDistribution distribution;
-    SampledSpectrum F0, F1;
+    Float F0, F1;
 };
 
 // DiffuseBxDF Definition

@@ -18,9 +18,11 @@
 #include <pbrt/util/taggedptr.h>
 #include <pbrt/util/transform.h>
 
-#include <memory>
 #include <string>
 #include <type_traits>
+#include "pbrt/base/texture.h"
+#include "pbrt/bxdfs.h"
+#include "pbrt/paramdict.h"
 
 namespace pbrt {
 
@@ -424,6 +426,85 @@ class HairMaterial {
     SpectrumTexture sigma_a, color;
     FloatTexture eumelanin, pheomelanin, eta;
     FloatTexture beta_m, beta_n, alpha;
+};
+
+// BagherMaterial Declarations
+class BagherMaterial {
+public:
+    using BxDF = BagherBxDF;
+    using BSSRDF = void;
+
+    // BagherMaterial Public Methods
+    static BagherMaterial *Create(
+        const TextureParameterDictionary &parameters,
+        Image *normalMap,
+        const FileLoc *loc,
+        Allocator alloc
+    );
+
+    // Construtor corrigido para usar SpectrumTexture ao invés de Image*
+    BagherMaterial(
+        FloatTexture *Kd,
+        FloatTexture *alpha,
+        FloatTexture *p,
+        FloatTexture *F0,
+        FloatTexture *F1,
+        FloatTexture *Kap,
+        FloatTexture *displacement,
+        FloatTexture *reflectance,
+        Image* normalMap,
+        bool *normalMapIsFloat
+    ) :
+        Kd(Kd),
+        alpha(alpha),
+        p(p),
+        F0(F0),
+        F1(F1),
+        Kap(Kap),
+        displacement(displacement),
+        normalMap(normalMap),
+        normalMapIsFloat(normalMapIsFloat) {}
+
+    template <typename TextureEvaluator>
+    PBRT_CPU_GPU BxDF GetBxDF(
+        TextureEvaluator texEval,
+        MaterialEvalContext ctx,
+        SampledWavelengths &lambda
+    ) const;
+
+    template <typename TextureEvaluator>
+    PBRT_CPU_GPU BSSRDF GetBSSRDF(
+        TextureEvaluator texEval,
+        MaterialEvalContext ctx,
+        SampledWavelengths &lambda,
+        void*
+    ) const {}
+
+    template <typename TextureEvaluator>
+    PBRT_CPU_GPU bool CanEvaluateTextures(
+        TextureEvaluator texEval
+    ) const {
+        return texEval.CanEvaluate({Kd, alpha, p, F0, F1, Kap, normalMap}, {Kd});
+    }
+
+    PBRT_CPU_GPU FloatTexture GetDisplacement() const {
+        return displacement;
+    }
+
+    const Image *GetNormalMap() const { return normalMap; }
+
+    PBRT_CPU_GPU static constexpr bool HasSubsurfaceScattering() { return false; }
+
+    static const char *Name() { return "BagherMaterial"; }
+
+    std::string ToString() const;
+
+private:
+    // BagherMaterial Private Members - corrigidos para SpectrumTexture
+    FloatTexture* Kd, *alpha, *p, *F0, *F1, *Kap;
+    FloatTexture* displacement;
+    Image* normalMap;
+    bool* normalMapIsFloat;
 };
 
 // DiffuseMaterial Definition
